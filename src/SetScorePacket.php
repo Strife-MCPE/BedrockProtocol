@@ -61,14 +61,15 @@ class SetScorePacket extends DataPacket implements ClientboundPacket{
 
 			//same for all types
 			$entry->scoreboardId = VarInt::readSignedLong($in);
-			$entry->objectiveName = CommonTypes::readOptional($in, CommonTypes::getString(...));
 
 			if($action === ScorePacketEntryAction::REMOVE){
-				//NOOP
+				$entry->objectiveName = CommonTypes::readOptional($in, CommonTypes::getString(...));
 			}elseif($action === ScorePacketEntryAction::CHANGE_PLAYER || $action === ScorePacketEntryAction::CHANGE_ENTITY){
+				$entry->objectiveName = CommonTypes::getString($in);
 				$entry->score = LE::readSignedInt($in);
 				$entry->actorUniqueId = CommonTypes::getActorUniqueId($in);
 			}elseif($action === ScorePacketEntryAction::CHANGE_FAKE_PLAYER){
+				$entry->objectiveName = CommonTypes::getString($in);
 				$entry->score = LE::readSignedInt($in);
 				$entry->customName = CommonTypes::getString($in);
 			}else{ // this should never be the case
@@ -85,14 +86,15 @@ class SetScorePacket extends DataPacket implements ClientboundPacket{
 
 			//same for all types
 			VarInt::writeSignedLong($out, $entry->scoreboardId);
-			CommonTypes::writeOptional($out, $entry->objectiveName, CommonTypes::putString(...));
 
 			if($entry->action === ScorePacketEntryAction::REMOVE){
-				//NOOP
+				CommonTypes::writeOptional($out, $entry->objectiveName, CommonTypes::putString(...));
 			}elseif($entry->action === ScorePacketEntryAction::CHANGE_PLAYER || $entry->action === ScorePacketEntryAction::CHANGE_ENTITY){
+				CommonTypes::putString($out, $entry->objectiveName);
 				LE::writeSignedInt($out, $entry->score);
 				CommonTypes::putActorUniqueId($out, $entry->actorUniqueId);
 			}elseif($entry->action === ScorePacketEntryAction::CHANGE_FAKE_PLAYER){
+				CommonTypes::putString($out, $entry->objectiveName);
 				LE::writeSignedInt($out, $entry->score);
 				CommonTypes::putString($out, $entry->customName ?? throw new \InvalidArgumentException("CustomName must be set for this entry type"));
 			}else{ // this should never be the case

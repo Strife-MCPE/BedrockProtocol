@@ -91,6 +91,8 @@ final class ClientData{
 	/** @required */
 	public int $MemoryTier;
 
+	public string $Nonce; //sometimes the client doesn't send it, apparently
+
 	public bool $OverrideSkin;
 
 	public string $PartyId;
@@ -124,6 +126,9 @@ final class ClientData{
 
 	/** @required */
 	public bool $PremiumSkin = false;
+
+	/** @required */
+	public string $ProfileHash;
 
 	/** @required */
 	public string $SelfSignedId;

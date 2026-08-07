@@ -54,14 +54,14 @@ class ReleaseItemTransactionData extends TransactionData{
 	protected function decodeData(ByteBufferReader $in) : void{
 		$this->actionType = VarInt::readSignedInt($in);
 		$this->hotbarSlot = VarInt::readSignedInt($in);
-		$this->itemInHand = CommonTypes::getNetworkItemStackDescriptor($in);
+		$this->itemInHand = CommonTypes::getItemStackWrapper($in);
 		$this->headPosition = CommonTypes::getVector3($in);
 	}
 
 	protected function encodeData(ByteBufferWriter $out) : void{
 		VarInt::writeSignedInt($out, $this->actionType);
 		VarInt::writeSignedInt($out, $this->hotbarSlot);
-		CommonTypes::putNetworkItemStackDescriptor($out, $this->itemInHand);
+		CommonTypes::putItemStackWrapper($out, $this->itemInHand);
 		CommonTypes::putVector3($out, $this->headPosition);
 	}
 
@@ -79,6 +79,7 @@ class ReleaseItemTransactionData extends TransactionData{
 
 	/**
 	 * @param NetworkInventoryAction[] $actions
+	 * @phpstan-param list<NetworkInventoryAction> $actions
 	 */
 	public static function new(array $actions, int $actionType, int $hotbarSlot, ItemStackWrapper $itemInHand, Vector3 $headPosition) : self{
 		$result = self::initSelf($actionType, $hotbarSlot, $itemInHand, $headPosition);

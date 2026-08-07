@@ -20,11 +20,11 @@ use pmmp\encoding\ByteBufferWriter;
 use pocketmine\network\mcpe\protocol\serializer\CommonTypes;
 use pocketmine\network\mcpe\protocol\types\GetTypeIdFromConstTrait;
 use pocketmine\network\mcpe\protocol\types\recipe\RecipeIngredient;
-use function count;
 
 /**
  * Tells that the current transaction crafted the specified recipe, using the recipe book. This is effectively the same
  * as the regular crafting result action.
+ * Spec name: ItemStackRequestCraftRecipeAutoAction
  */
 final class CraftRecipeAutoStackRequestAction extends ItemStackRequestAction{
 	use GetTypeIdFromConstTrait;
@@ -38,15 +38,12 @@ final class CraftRecipeAutoStackRequestAction extends ItemStackRequestAction{
 	final public function __construct(
 		private int $recipeId,
 		private int $repetitions,
-		private int $repetitions2,
 		private array $ingredients
 	){}
 
 	public function getRecipeId() : int{ return $this->recipeId; }
 
 	public function getRepetitions() : int{ return $this->repetitions; }
-
-	public function getRepetitions2() : int{ return $this->repetitions2; }
 
 	/**
 	 * @return RecipeIngredient[]
@@ -57,21 +54,13 @@ final class CraftRecipeAutoStackRequestAction extends ItemStackRequestAction{
 	public static function read(ByteBufferReader $in) : self{
 		$recipeId = CommonTypes::readRecipeNetId($in);
 		$repetitions = Byte::readUnsigned($in);
-		$repetitions2 = Byte::readUnsigned($in); //repetitions property is sent twice, mojang...
-		$ingredients = [];
-		for($i = 0, $count = Byte::readUnsigned($in); $i < $count; ++$i){
-			$ingredients[] = CommonTypes::getRecipeIngredient($in);
-		}
-		return new self($recipeId, $repetitions, $repetitions2, $ingredients);
+		$ingredients = CommonTypes::readList($in, CommonTypes::readStackRequestIngredient(...));
+		return new self($recipeId, $repetitions, $ingredients);
 	}
 
 	public function write(ByteBufferWriter $out) : void{
 		CommonTypes::writeRecipeNetId($out, $this->recipeId);
 		Byte::writeUnsigned($out, $this->repetitions);
-		Byte::writeUnsigned($out, $this->repetitions2);
-		Byte::writeUnsigned($out, count($this->ingredients));
-		foreach($this->ingredients as $ingredient){
-			CommonTypes::putRecipeIngredient($out, $ingredient);
-		}
+		CommonTypes::writeList($out, $this->ingredients, CommonTypes::writeStackRequestIngredient(...));
 	}
 }

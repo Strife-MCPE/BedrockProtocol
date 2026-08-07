@@ -124,7 +124,7 @@ final class LevelSettings{
 		$this->platformBroadcastMode = VarInt::readSignedInt($in);
 		$this->commandsEnabled = CommonTypes::getBool($in);
 		$this->isTexturePacksRequired = CommonTypes::getBool($in);
-		$this->gameRules = CommonTypes::getGameRules($in, true);
+		$this->gameRules = CommonTypes::getGameRules($in);
 		$this->experiments = Experiments::read($in);
 		$this->hasBonusChestEnabled = CommonTypes::getBool($in);
 		$this->hasStartWithMapEnabled = CommonTypes::getBool($in);
@@ -177,7 +177,7 @@ final class LevelSettings{
 		VarInt::writeSignedInt($out, $this->platformBroadcastMode);
 		CommonTypes::putBool($out, $this->commandsEnabled);
 		CommonTypes::putBool($out, $this->isTexturePacksRequired);
-		CommonTypes::putGameRules($out, $this->gameRules, true);
+		CommonTypes::putGameRules($out, $this->gameRules);
 		$this->experiments->write($out);
 		CommonTypes::putBool($out, $this->hasBonusChestEnabled);
 		CommonTypes::putBool($out, $this->hasStartWithMapEnabled);

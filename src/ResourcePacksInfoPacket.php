@@ -16,16 +16,17 @@ namespace pocketmine\network\mcpe\protocol;
 
 use pmmp\encoding\ByteBufferReader;
 use pmmp\encoding\ByteBufferWriter;
-use pmmp\encoding\LE;
 use pocketmine\network\mcpe\protocol\serializer\CommonTypes;
 use pocketmine\network\mcpe\protocol\types\resourcepacks\ResourcePackInfoEntry;
 use Ramsey\Uuid\UuidInterface;
-use function count;
 
 class ResourcePacksInfoPacket extends DataPacket implements ClientboundPacket{
 	public const NETWORK_ID = ProtocolInfo::RESOURCE_PACKS_INFO_PACKET;
 
-	/** @var ResourcePackInfoEntry[] */
+	/**
+	 * @var ResourcePackInfoEntry[]
+	 * @phpstan-var list<ResourcePackInfoEntry>
+	 */
 	public array $resourcePackEntries = [];
 	public bool $mustAccept = false; //if true, forces client to choose between accepting packs or being disconnected
 	public bool $hasAddons = false;
@@ -37,6 +38,7 @@ class ResourcePacksInfoPacket extends DataPacket implements ClientboundPacket{
 	/**
 	 * @generate-create-func
 	 * @param ResourcePackInfoEntry[] $resourcePackEntries
+	 * @phpstan-param list<ResourcePackInfoEntry> $resourcePackEntries
 	 */
 	public static function create(
 		array $resourcePackEntries,
@@ -75,10 +77,7 @@ class ResourcePacksInfoPacket extends DataPacket implements ClientboundPacket{
 		$this->worldTemplateId = CommonTypes::getUUID($in);
 		$this->worldTemplateVersion = CommonTypes::getString($in);
 
-		$resourcePackCount = LE::readUnsignedShort($in);
-		while($resourcePackCount-- > 0){
-			$this->resourcePackEntries[] = ResourcePackInfoEntry::read($in);
-		}
+		$this->resourcePackEntries = CommonTypes::readList($in, static fn(ByteBufferReader $in) => ResourcePackInfoEntry::read($in));
 	}
 
 	protected function encodePayload(ByteBufferWriter $out) : void{
@@ -88,10 +87,8 @@ class ResourcePacksInfoPacket extends DataPacket implements ClientboundPacket{
 		CommonTypes::putBool($out, $this->forceDisableVibrantVisuals);
 		CommonTypes::putUUID($out, $this->worldTemplateId);
 		CommonTypes::putString($out, $this->worldTemplateVersion);
-		LE::writeUnsignedShort($out, count($this->resourcePackEntries));
-		foreach($this->resourcePackEntries as $entry){
-			$entry->write($out);
-		}
+
+		CommonTypes::writeList($out, $this->resourcePackEntries, static fn(ByteBufferWriter $out, ResourcePackInfoEntry $entry) => $entry->write($out));
 	}
 
 	public function handle(PacketHandlerInterface $handler) : bool{

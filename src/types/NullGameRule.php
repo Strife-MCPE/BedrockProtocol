@@ -16,29 +16,21 @@ namespace pocketmine\network\mcpe\protocol\types;
 
 use pmmp\encoding\ByteBufferReader;
 use pmmp\encoding\ByteBufferWriter;
-use pocketmine\network\mcpe\protocol\serializer\CommonTypes;
 
-final class BoolGameRule extends GameRule{
+final class NullGameRule extends GameRule{
 	use GetTypeIdFromConstTrait;
 
-	public const ID = GameRuleType::BOOL;
+	public const ID = GameRuleType::NULL;
 
-	private bool $value;
-
-	public function __construct(bool $value, bool $isPlayerModifiable){
+	public function __construct(bool $isPlayerModifiable){
 		parent::__construct($isPlayerModifiable);
-		$this->value = $value;
-	}
-
-	public function getValue() : bool{
-		return $this->value;
 	}
 
 	public function encode(ByteBufferWriter $out) : void{
-		CommonTypes::putBool($out, $this->value);
+		//NOOP
 	}
 
 	public static function decode(ByteBufferReader $in, bool $isPlayerModifiable) : self{
-		return new self(CommonTypes::getBool($in), $isPlayerModifiable);
+		return new self($isPlayerModifiable);
 	}
 }

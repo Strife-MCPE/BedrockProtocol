@@ -102,13 +102,17 @@ class UseItemTransactionData extends TransactionData{
 		}
 		$this->hotbarSlot = VarInt::readSignedInt($in);
 		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_30){
-			$this->itemInHand = CommonTypes::getNetworkItemStackDescriptor($in);
+			$this->itemInHand = CommonTypes::getNetworkItemStackDescriptor($in, $protocolId);
 		}else{
 			$this->itemInHand = CommonTypes::getItemStackWrapper($in);
 		}
 		$this->playerPosition = CommonTypes::getVector3($in);
 		$this->clickPosition = CommonTypes::getVector3($in);
-		$this->blockRuntimeId = VarInt::readUnsignedInt($in);
+		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+			$this->blockRuntimeId = CommonTypes::getBlockRuntimeId($in);
+		}else{
+			$this->blockRuntimeId = VarInt::readUnsignedInt($in);
+		}
 		if($protocolId >= ProtocolInfo::PROTOCOL_1_21_20){
 			$this->clientInteractPrediction = PredictedResult::fromPacket($protocolId >= ProtocolInfo::PROTOCOL_1_26_30 ? Byte::readUnsigned($in) : VarInt::readUnsignedInt($in));
 			if($protocolId >= ProtocolInfo::PROTOCOL_1_26_10){
@@ -138,13 +142,17 @@ class UseItemTransactionData extends TransactionData{
 		}
 		VarInt::writeSignedInt($out, $this->hotbarSlot);
 		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_30){
-			CommonTypes::putNetworkItemStackDescriptor($out, $this->itemInHand);
+			CommonTypes::putNetworkItemStackDescriptor($out, $protocolId, $this->itemInHand);
 		}else{
 			CommonTypes::putItemStackWrapper($out, $this->itemInHand);
 		}
 		CommonTypes::putVector3($out, $this->playerPosition);
 		CommonTypes::putVector3($out, $this->clickPosition);
-		VarInt::writeUnsignedInt($out, $this->blockRuntimeId);
+		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+			CommonTypes::putBlockRuntimeId($out, $this->blockRuntimeId);
+		}else{
+			VarInt::writeUnsignedInt($out, $this->blockRuntimeId);
+		}
 		if($protocolId >= ProtocolInfo::PROTOCOL_1_21_20){
 			if($protocolId >= ProtocolInfo::PROTOCOL_1_26_30){
 				Byte::writeUnsigned($out, $this->clientInteractPrediction->value);

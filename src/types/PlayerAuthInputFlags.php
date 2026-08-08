@@ -118,6 +118,14 @@ final class PlayerAuthInputFlags{
 	public const SNEAK_RELEASED_RAW = 62;
 	public const SNEAK_PRESSED_RAW = 63;
 	public const SNEAK_CURRENT_RAW = 64;
+	/** @since 1.26.40 */
+	public const INTERNAL_UPDATE = 65;
 
+	/**
+	 * Number of flags serialized in the BitSet wire format used by protocols older than 1.26.40.
+	 * This intentionally keeps its pre-1.26.40 value - do NOT bump it when new flags are added.
+	 */
 	public const NUMBER_OF_FLAGS = 65;
+	/** Number of flags known to 1.26.40 (which serializes flags as a list of IDs instead of a BitSet). */
+	public const NUMBER_OF_FLAGS_1_26_40 = 66;
 }

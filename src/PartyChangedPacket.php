@@ -21,34 +21,54 @@ use pocketmine\network\mcpe\protocol\serializer\CommonTypes;
 class PartyChangedPacket extends DataPacket implements ServerboundPacket{
 	public const NETWORK_ID = ProtocolInfo::PARTY_CHANGED_PACKET;
 
-	private string $partyId;
+	private ?string $partyId;
 	private bool $partyLeader;
 
 	/**
 	 * @generate-create-func
 	 */
-	public static function create(string $partyId, bool $partyLeader) : self{
+	public static function create(?string $partyId, bool $partyLeader) : self{
 		$result = new self;
 		$result->partyId = $partyId;
 		$result->partyLeader = $partyLeader;
 		return $result;
 	}
 
-	public function getPartyId() : string{ return $this->partyId; }
+	/** Null if no party info was sent (only possible for 1.26.40+) */
+	public function getPartyId() : ?string{ return $this->partyId; }
 
 	public function isPartyLeader() : bool{ return $this->partyLeader; }
 
 	protected function decodePayload(ByteBufferReader $in, int $protocolId) : void{
-		$this->partyId = CommonTypes::getString($in);
-		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_20){
-			$this->partyLeader = CommonTypes::getBool($in);
+		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+			//1.26.40+: party info is optional (presence-bool prefixed)
+			if(CommonTypes::getBool($in)){
+				$this->partyId = CommonTypes::getString($in);
+				$this->partyLeader = CommonTypes::getBool($in);
+			}else{
+				$this->partyId = null;
+				$this->partyLeader = false;
+			}
+		}else{
+			$this->partyId = CommonTypes::getString($in);
+			if($protocolId >= ProtocolInfo::PROTOCOL_1_26_20){
+				$this->partyLeader = CommonTypes::getBool($in);
+			}
 		}
 	}
 
 	protected function encodePayload(ByteBufferWriter $out, int $protocolId) : void{
-		CommonTypes::putString($out, $this->partyId);
-		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_20){
-			CommonTypes::putBool($out, $this->partyLeader);
+		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+			CommonTypes::putBool($out, $this->partyId !== null);
+			if($this->partyId !== null){
+				CommonTypes::putString($out, $this->partyId);
+				CommonTypes::putBool($out, $this->partyLeader);
+			}
+		}else{
+			CommonTypes::putString($out, $this->partyId ?? throw new \InvalidArgumentException("partyId must be set for versions prior to 1.26.40"));
+			if($protocolId >= ProtocolInfo::PROTOCOL_1_26_20){
+				CommonTypes::putBool($out, $this->partyLeader);
+			}
 		}
 	}
 

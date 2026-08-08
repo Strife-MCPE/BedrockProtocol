@@ -1025,7 +1025,9 @@ final class CommonTypes{
 		$result = new StructureEditorData();
 
 		$result->structureName = self::getString($in);
-		if($protocolId >= ProtocolInfo::PROTOCOL_1_21_60){
+		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+			$result->filteredStructureName = self::readOptional($in, self::getString(...));
+		}elseif($protocolId >= ProtocolInfo::PROTOCOL_1_21_60){
 			$result->filteredStructureName = self::getString($in);
 		}
 		$result->structureDataField = self::getString($in);
@@ -1042,8 +1044,10 @@ final class CommonTypes{
 
 	public static function putStructureEditorData(ByteBufferWriter $out, int $protocolId, StructureEditorData $structureEditorData) : void{
 		self::putString($out, $structureEditorData->structureName);
-		if($protocolId >= ProtocolInfo::PROTOCOL_1_21_60){
-			self::putString($out, $structureEditorData->filteredStructureName);
+		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+			self::writeOptional($out, $structureEditorData->filteredStructureName, self::putString(...));
+		}elseif($protocolId >= ProtocolInfo::PROTOCOL_1_21_60){
+			self::putString($out, $structureEditorData->filteredStructureName ?? "");
 		}
 		self::putString($out, $structureEditorData->structureDataField);
 

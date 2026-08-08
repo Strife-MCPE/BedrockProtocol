@@ -17,9 +17,11 @@ namespace pocketmine\network\mcpe\protocol\types;
 use pmmp\encoding\ByteBufferReader;
 use pmmp\encoding\ByteBufferWriter;
 use pmmp\encoding\DataDecodeException;
+use pmmp\encoding\LE;
 use pmmp\encoding\VarInt;
 use pocketmine\color\Color;
 use pocketmine\network\mcpe\protocol\PacketDecodeException;
+use pocketmine\network\mcpe\protocol\ProtocolInfo;
 use pocketmine\utils\Binary;
 use function count;
 
@@ -35,7 +37,11 @@ final class MapImage{
 	 * @phpstan-var list<list<Color>>
 	 */
 	private array $pixels;
-	private ?string $encodedPixelCache = null;
+	/**
+	 * @var string[] encoded pixel data, indexed by wire format (0 = pre-1.26.40 varint RGBA, 1 = 1.26.40+ LE ARGB)
+	 * @phpstan-var array<int, string>
+	 */
+	private array $encodedPixelCache = [];
 
 	/**
 	 * @param Color[][] $pixels
@@ -74,26 +80,31 @@ final class MapImage{
 	 */
 	public function getPixels() : array{ return $this->pixels; }
 
-	public function encode(ByteBufferWriter $out) : void{
-		if($this->encodedPixelCache === null){
+	public function encode(ByteBufferWriter $out, int $protocolId) : void{
+		$cacheKey = $protocolId >= ProtocolInfo::PROTOCOL_1_26_40 ? 1 : 0;
+		if(!isset($this->encodedPixelCache[$cacheKey])){
 			$serializer = new ByteBufferWriter();
 			for($y = 0; $y < $this->height; ++$y){
 				for($x = 0; $x < $this->width; ++$x){
-					//if mojang had any sense this would just be a regular LE int
-					VarInt::writeUnsignedInt($serializer, Binary::flipIntEndianness($this->pixels[$y][$x]->toRGBA()));
+					if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+						LE::writeUnsignedInt($serializer, $this->pixels[$y][$x]->toARGB());
+					}else{
+						//if mojang had any sense this would just be a regular LE int
+						VarInt::writeUnsignedInt($serializer, Binary::flipIntEndianness($this->pixels[$y][$x]->toRGBA()));
+					}
 				}
 			}
-			$this->encodedPixelCache = $serializer->getData();
+			$this->encodedPixelCache[$cacheKey] = $serializer->getData();
 		}
 
-		$out->writeByteArray($this->encodedPixelCache);
+		$out->writeByteArray($this->encodedPixelCache[$cacheKey]);
 	}
 
 	/**
 	 * @throws PacketDecodeException
 	 * @throws DataDecodeException
 	 */
-	public static function decode(ByteBufferReader $in, int $height, int $width) : self{
+	public static function decode(ByteBufferReader $in, int $height, int $width, int $protocolId) : self{
 		if($width > self::MAX_WIDTH){
 			throw new PacketDecodeException("Image width must be at most " . self::MAX_WIDTH . " pixels wide");
 		}
@@ -105,7 +116,11 @@ final class MapImage{
 		for($y = 0; $y < $height; ++$y){
 			$row = [];
 			for($x = 0; $x < $width; ++$x){
-				$row[] = Color::fromRGBA(Binary::flipIntEndianness(VarInt::readUnsignedInt($in)));
+				if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+					$row[] = Color::fromARGB(LE::readUnsignedInt($in));
+				}else{
+					$row[] = Color::fromRGBA(Binary::flipIntEndianness(VarInt::readUnsignedInt($in)));
+				}
 			}
 			$pixels[] = $row;
 		}

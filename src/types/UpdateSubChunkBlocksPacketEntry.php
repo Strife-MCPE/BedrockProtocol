@@ -47,7 +47,7 @@ final class UpdateSubChunkBlocksPacketEntry{
 
 	public static function read(ByteBufferReader $in, int $protocolId) : UpdateSubChunkBlocksPacketEntry{
 		$blockPosition = CommonTypes::getBlockPosition($in, $protocolId >= ProtocolInfo::PROTOCOL_1_26_10);
-		$blockRuntimeId = VarInt::readUnsignedInt($in);
+		$blockRuntimeId = $protocolId >= ProtocolInfo::PROTOCOL_1_26_40 ? CommonTypes::getBlockRuntimeId($in) : VarInt::readUnsignedInt($in);
 		$updateFlags = VarInt::readUnsignedInt($in);
 		$syncedUpdateActorUniqueId = VarInt::readUnsignedLong($in); //this can't use the standard method because it's unsigned as opposed to the usual signed... !!!!!!
 		$syncedUpdateType = VarInt::readUnsignedInt($in); //this isn't even consistent with UpdateBlockSyncedPacket?!
@@ -57,7 +57,11 @@ final class UpdateSubChunkBlocksPacketEntry{
 
 	public function write(ByteBufferWriter $out, int $protocolId) : void{
 		CommonTypes::putBlockPosition($out, $this->blockPosition, $protocolId >= ProtocolInfo::PROTOCOL_1_26_10);
-		VarInt::writeUnsignedInt($out, $this->blockRuntimeId);
+		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+			CommonTypes::putBlockRuntimeId($out, $this->blockRuntimeId);
+		}else{
+			VarInt::writeUnsignedInt($out, $this->blockRuntimeId);
+		}
 		VarInt::writeUnsignedInt($out, $this->flags);
 		VarInt::writeUnsignedLong($out, $this->syncedUpdateActorUniqueId);
 		VarInt::writeUnsignedInt($out, $this->syncedUpdateType);

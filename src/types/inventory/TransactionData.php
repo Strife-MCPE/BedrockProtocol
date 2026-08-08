@@ -19,6 +19,8 @@ use pmmp\encoding\ByteBufferWriter;
 use pmmp\encoding\DataDecodeException;
 use pmmp\encoding\VarInt;
 use pocketmine\network\mcpe\protocol\PacketDecodeException;
+use pocketmine\network\mcpe\protocol\ProtocolInfo;
+use pocketmine\network\mcpe\protocol\serializer\CommonTypes;
 use function count;
 
 abstract class TransactionData{
@@ -51,9 +53,19 @@ abstract class TransactionData{
 	 * @throws DataDecodeException
 	 * @throws PacketDecodeException
 	 */
-	final public function decodeAuthInput(ByteBufferReader $in) : void{
-		$actionCount = VarInt::readUnsignedInt($in);
+	final public function decodeAuthInput(ByteBufferReader $in, int $protocolId) : void{
 		$this->actions = [];
+		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+			if(CommonTypes::getBool($in) && CommonTypes::getBool($in)){
+				$actionCount = VarInt::readUnsignedInt($in);
+				for($i = 0; $i < $actionCount; ++$i){
+					$this->actions[] = (new NetworkInventoryAction())->readTransaction($in, $protocolId);
+				}
+			}
+			$this->decodeData($in, $protocolId);
+			return;
+		}
+		$actionCount = VarInt::readUnsignedInt($in);
 		for($i = 0; $i < $actionCount; ++$i){
 			$this->actions[] = (new NetworkInventoryAction())->readAuthInput($in);
 		}
@@ -73,7 +85,19 @@ abstract class TransactionData{
 		$this->encodeData($out, $protocolId);
 	}
 
-	final public function encodeAuthInput(ByteBufferWriter $out) : void{
+	final public function encodeAuthInput(ByteBufferWriter $out, int $protocolId) : void{
+		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+			CommonTypes::putBool($out, true);
+			CommonTypes::putBool($out, count($this->actions) !== 0);
+			if(count($this->actions) !== 0){
+				VarInt::writeUnsignedInt($out, count($this->actions));
+				foreach($this->actions as $action){
+					$action->writeTransaction($out, $protocolId);
+				}
+			}
+			$this->encodeData($out, $protocolId);
+			return;
+		}
 		VarInt::writeUnsignedInt($out, count($this->actions));
 		foreach($this->actions as $action){
 			$action->writeAuthInput($out);

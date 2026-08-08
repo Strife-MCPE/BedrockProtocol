@@ -23,7 +23,8 @@ class StructureEditorData{
 	public const TYPE_EXPORT = 5;
 
 	public string $structureName;
-	public string $filteredStructureName;
+	/** Nullable for 1.26.40+, where this is optional on the wire */
+	public ?string $filteredStructureName = null;
 	public string $structureDataField;
 	public bool $includePlayers;
 	public bool $showBoundingBox;

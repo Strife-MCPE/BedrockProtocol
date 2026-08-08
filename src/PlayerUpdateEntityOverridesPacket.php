@@ -73,7 +73,11 @@ class PlayerUpdateEntityOverridesPacket extends DataPacket implements Clientboun
 	protected function decodePayload(ByteBufferReader $in, int $protocolId) : void{
 		$this->actorRuntimeId = CommonTypes::getActorRuntimeId($in);
 		$this->propertyIndex = VarInt::readUnsignedInt($in);
+		$variant = $protocolId >= ProtocolInfo::PROTOCOL_1_26_40 ? VarInt::readUnsignedInt($in) : null;
 		$this->updateType = OverrideUpdateType::fromPacket(Byte::readUnsigned($in));
+		if($variant !== null && $variant !== $this->updateType->value){
+			throw new PacketDecodeException("Entity override variant $variant does not match type " . $this->updateType->value);
+		}
 		if($this->updateType === OverrideUpdateType::SET_INT_OVERRIDE){
 			$this->intOverrideValue = LE::readSignedInt($in);
 		}elseif($this->updateType === OverrideUpdateType::SET_FLOAT_OVERRIDE){
@@ -84,6 +88,9 @@ class PlayerUpdateEntityOverridesPacket extends DataPacket implements Clientboun
 	protected function encodePayload(ByteBufferWriter $out, int $protocolId) : void{
 		CommonTypes::putActorRuntimeId($out, $this->actorRuntimeId);
 		VarInt::writeUnsignedInt($out, $this->propertyIndex);
+		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+			VarInt::writeUnsignedInt($out, $this->updateType->value);
+		}
 		Byte::writeUnsigned($out, $this->updateType->value);
 		if($this->updateType === OverrideUpdateType::SET_INT_OVERRIDE){
 			if($this->intOverrideValue === null){ // this should never be the case

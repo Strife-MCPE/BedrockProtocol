@@ -86,17 +86,17 @@ final class ShapelessRecipe extends RecipeWithTypeId{
 		$recipeId = CommonTypes::getString($in);
 		$input = [];
 		for($j = 0, $ingredientCount = VarInt::readUnsignedInt($in); $j < $ingredientCount; ++$j){
-			$input[] = CommonTypes::getRecipeIngredient($in);
+			$input[] = CommonTypes::getRecipeIngredient($in, $protocolId);
 		}
 		$output = [];
 		for($k = 0, $resultCount = VarInt::readUnsignedInt($in); $k < $resultCount; ++$k){
-			$output[] = CommonTypes::getItemStackWithoutStackId($in);
+			$output[] = CommonTypes::getItemStackWithoutStackId($in, $protocolId);
 		}
 		$uuid = CommonTypes::getUUID($in);
 		$block = CommonTypes::getString($in);
 		$priority = VarInt::readSignedInt($in);
 		if($protocolId >= ProtocolInfo::PROTOCOL_1_21_0){
-			$unlockingRequirement = RecipeUnlockingRequirement::read($in);
+			$unlockingRequirement = RecipeUnlockingRequirement::read($in, $protocolId);
 		}
 
 		$recipeNetId = CommonTypes::readRecipeNetId($in);
@@ -108,19 +108,19 @@ final class ShapelessRecipe extends RecipeWithTypeId{
 		CommonTypes::putString($out, $this->recipeId);
 		VarInt::writeUnsignedInt($out, count($this->inputs));
 		foreach($this->inputs as $item){
-			CommonTypes::putRecipeIngredient($out, $item);
+			CommonTypes::putRecipeIngredient($out, $protocolId, $item);
 		}
 
 		VarInt::writeUnsignedInt($out, count($this->outputs));
 		foreach($this->outputs as $item){
-			CommonTypes::putItemStackWithoutStackId($out, $item);
+			CommonTypes::putItemStackWithoutStackId($out, $protocolId, $item);
 		}
 
 		CommonTypes::putUUID($out, $this->uuid);
 		CommonTypes::putString($out, $this->blockName);
 		VarInt::writeSignedInt($out, $this->priority);
 		if($protocolId >= ProtocolInfo::PROTOCOL_1_21_0){
-			$this->unlockingRequirement->write($out);
+			$this->unlockingRequirement->write($out, $protocolId);
 		}
 
 		CommonTypes::writeRecipeNetId($out, $this->recipeNetId);

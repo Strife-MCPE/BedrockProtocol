@@ -17,10 +17,16 @@ namespace pocketmine\network\mcpe\protocol\types\recipe;
 use pmmp\encoding\ByteBufferReader;
 use pmmp\encoding\ByteBufferWriter;
 use pmmp\encoding\VarInt;
+use pocketmine\network\mcpe\protocol\ProtocolInfo;
 use pocketmine\network\mcpe\protocol\serializer\CommonTypes;
 use function count;
 
 final class RecipeUnlockingRequirement{
+
+	public const CONTEXT_NONE = 0;
+	public const CONTEXT_ALWAYS_UNLOCKED = 1;
+	public const CONTEXT_PLAYER_IN_WATER = 2;
+	public const CONTEXT_PLAYER_HAS_MANY_ITEMS = 3;
 
 	/**
 	 * @param RecipeIngredient[]|null $unlockingIngredients
@@ -36,7 +42,25 @@ final class RecipeUnlockingRequirement{
 	 */
 	public function getUnlockingIngredients() : ?array{ return $this->unlockingIngredients; }
 
-	public static function read(ByteBufferReader $in) : self{
+	public static function read(ByteBufferReader $in, int $protocolId) : self{
+		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+			$present = CommonTypes::getBool($in);
+			if(!$present){
+				return new self(null);
+			}
+			VarInt::readSignedInt($in); //context - redundant, derivable from ingredients presence below
+			$hasIngredients = CommonTypes::getBool($in);
+			$unlockingIngredients = null;
+			if($hasIngredients){
+				$unlockingIngredients = [];
+				for($i = 0, $count = VarInt::readUnsignedInt($in); $i < $count; $i++){
+					$unlockingIngredients[] = CommonTypes::getRecipeIngredient($in, $protocolId);
+				}
+			}
+
+			return new self($unlockingIngredients);
+		}
+
 		//I don't know what the point of this structure is. It could easily have been a list<RecipeIngredient> instead.
 		//It's basically just an optional list, which could have been done by an empty list wherever it's not needed.
 		$unlockingContext = CommonTypes::getBool($in);
@@ -44,19 +68,25 @@ final class RecipeUnlockingRequirement{
 		if(!$unlockingContext){
 			$unlockingIngredients = [];
 			for($i = 0, $count = VarInt::readUnsignedInt($in); $i < $count; $i++){
-				$unlockingIngredients[] = CommonTypes::getRecipeIngredient($in);
+				$unlockingIngredients[] = CommonTypes::getRecipeIngredient($in, $protocolId);
 			}
 		}
 
 		return new self($unlockingIngredients);
 	}
 
-	public function write(ByteBufferWriter $out) : void{
-		CommonTypes::putBool($out, $this->unlockingIngredients === null);
+	public function write(ByteBufferWriter $out, int $protocolId) : void{
+		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+			CommonTypes::putBool($out, true);
+			VarInt::writeSignedInt($out, $this->unlockingIngredients === null ? self::CONTEXT_ALWAYS_UNLOCKED : self::CONTEXT_NONE);
+			CommonTypes::putBool($out, $this->unlockingIngredients !== null);
+		}else{
+			CommonTypes::putBool($out, $this->unlockingIngredients === null);
+		}
 		if($this->unlockingIngredients !== null){
 			VarInt::writeUnsignedInt($out, count($this->unlockingIngredients));
 			foreach($this->unlockingIngredients as $ingredient){
-				CommonTypes::putRecipeIngredient($out, $ingredient);
+				CommonTypes::putRecipeIngredient($out, $protocolId, $ingredient);
 			}
 		}
 	}

@@ -21,6 +21,7 @@ use pmmp\encoding\DataDecodeException;
 use pmmp\encoding\LE;
 use pmmp\encoding\VarInt;
 use pocketmine\network\mcpe\protocol\PacketDecodeException;
+use pocketmine\network\mcpe\protocol\ProtocolInfo;
 use pocketmine\network\mcpe\protocol\serializer\CommonTypes;
 use function count;
 
@@ -80,11 +81,27 @@ final class ItemStackRequest{
 		};
 	}
 
+	private static function actionVariantToTypeId(int $variant) : int{
+		return $variant >= 7 ? $variant + 2 : $variant;
+	}
+
+	private static function actionTypeIdToVariant(int $typeId) : int{
+		return $typeId >= 9 ? $typeId - 2 : $typeId;
+	}
+
 	public static function read(ByteBufferReader $in, int $protocolId) : self{
 		$requestId = CommonTypes::readItemStackRequestId($in);
 		$actions = [];
 		for($i = 0, $len = VarInt::readUnsignedInt($in); $i < $len; ++$i){
-			$typeId = Byte::readUnsigned($in);
+			if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+				$variant = VarInt::readUnsignedInt($in);
+				$typeId = Byte::readUnsigned($in);
+				if(self::actionVariantToTypeId($variant) !== $typeId){
+					throw new PacketDecodeException("Stack request action variant $variant does not match type ID $typeId");
+				}
+			}else{
+				$typeId = Byte::readUnsigned($in);
+			}
 			$actions[] = self::readAction($in, $protocolId, $typeId);
 		}
 		$filterStrings = [];
@@ -99,6 +116,9 @@ final class ItemStackRequest{
 		CommonTypes::writeItemStackRequestId($out, $this->requestId);
 		VarInt::writeUnsignedInt($out, count($this->actions));
 		foreach($this->actions as $action){
+			if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+				VarInt::writeUnsignedInt($out, self::actionTypeIdToVariant($action->getTypeId()));
+			}
 			Byte::writeUnsigned($out, $action->getTypeId());
 			$action->write($out, $protocolId);
 		}

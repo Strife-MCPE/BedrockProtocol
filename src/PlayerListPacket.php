@@ -60,6 +60,42 @@ class PlayerListPacket extends DataPacket implements ClientboundPacket{
 	}
 
 	protected function decodePayload(ByteBufferReader $in, int $protocolId) : void{
+		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+			//1.26.40 made the action per-entry (variant + legacy action byte) and removed the trailing
+			//skin-verified bool array (the trusted flag moved into the skin serialization itself)
+			$count = VarInt::readUnsignedInt($in);
+			for($i = 0; $i < $count; ++$i){
+				$entry = new PlayerListEntry();
+
+				$variant = VarInt::readUnsignedInt($in);
+				$legacyAction = Byte::readUnsigned($in);
+				$this->type = match($variant){
+					1 => self::TYPE_ADD,
+					0 => self::TYPE_REMOVE,
+					default => throw new PacketDecodeException("Unknown player list entry variant $variant")
+				};
+				if($legacyAction !== $this->type){
+					throw new PacketDecodeException("Player list legacy action $legacyAction does not match variant $variant");
+				}
+
+				$entry->uuid = CommonTypes::getUUID($in);
+				if($this->type === self::TYPE_ADD){
+					$entry->actorUniqueId = CommonTypes::getActorUniqueId($in);
+					$entry->username = CommonTypes::getString($in);
+					$entry->xboxUserId = CommonTypes::getString($in);
+					$entry->platformChatId = CommonTypes::getString($in);
+					$entry->buildPlatform = LE::readSignedInt($in);
+					$entry->skinData = CommonTypes::getSkin($in, $protocolId);
+					$entry->isTeacher = CommonTypes::getBool($in);
+					$entry->isHost = CommonTypes::getBool($in);
+					$entry->isSubClient = CommonTypes::getBool($in);
+					$entry->color = Color::fromARGB(LE::readUnsignedInt($in));
+				}
+
+				$this->entries[$i] = $entry;
+			}
+			return;
+		}
 		$this->type = Byte::readUnsigned($in);
 		$count = VarInt::readUnsignedInt($in);
 		for($i = 0; $i < $count; ++$i){
@@ -72,7 +108,7 @@ class PlayerListPacket extends DataPacket implements ClientboundPacket{
 				$entry->xboxUserId = CommonTypes::getString($in);
 				$entry->platformChatId = CommonTypes::getString($in);
 				$entry->buildPlatform = LE::readSignedInt($in);
-				$entry->skinData = CommonTypes::getSkin($in);
+				$entry->skinData = CommonTypes::getSkin($in, $protocolId);
 				$entry->isTeacher = CommonTypes::getBool($in);
 				$entry->isHost = CommonTypes::getBool($in);
 				if($protocolId >= ProtocolInfo::PROTOCOL_1_20_60){
@@ -95,6 +131,27 @@ class PlayerListPacket extends DataPacket implements ClientboundPacket{
 	}
 
 	protected function encodePayload(ByteBufferWriter $out, int $protocolId) : void{
+		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+			VarInt::writeUnsignedInt($out, count($this->entries));
+			foreach($this->entries as $entry){
+				VarInt::writeUnsignedInt($out, $this->type === self::TYPE_ADD ? 1 : 0);
+				Byte::writeUnsigned($out, $this->type);
+				CommonTypes::putUUID($out, $entry->uuid);
+				if($this->type === self::TYPE_ADD){
+					CommonTypes::putActorUniqueId($out, $entry->actorUniqueId);
+					CommonTypes::putString($out, $entry->username);
+					CommonTypes::putString($out, $entry->xboxUserId);
+					CommonTypes::putString($out, $entry->platformChatId);
+					LE::writeSignedInt($out, $entry->buildPlatform);
+					CommonTypes::putSkin($out, $protocolId, $entry->skinData);
+					CommonTypes::putBool($out, $entry->isTeacher);
+					CommonTypes::putBool($out, $entry->isHost);
+					CommonTypes::putBool($out, $entry->isSubClient);
+					LE::writeUnsignedInt($out, ($entry->color ?? new Color(255, 255, 255))->toARGB());
+				}
+			}
+			return;
+		}
 		Byte::writeUnsigned($out, $this->type);
 		VarInt::writeUnsignedInt($out, count($this->entries));
 		foreach($this->entries as $entry){
@@ -105,7 +162,7 @@ class PlayerListPacket extends DataPacket implements ClientboundPacket{
 				CommonTypes::putString($out, $entry->xboxUserId);
 				CommonTypes::putString($out, $entry->platformChatId);
 				LE::writeSignedInt($out, $entry->buildPlatform);
-				CommonTypes::putSkin($out, $entry->skinData);
+				CommonTypes::putSkin($out, $protocolId, $entry->skinData);
 				CommonTypes::putBool($out, $entry->isTeacher);
 				CommonTypes::putBool($out, $entry->isHost);
 				if($protocolId >= ProtocolInfo::PROTOCOL_1_20_60){

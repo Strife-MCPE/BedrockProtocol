@@ -17,7 +17,10 @@ namespace pocketmine\network\mcpe\protocol\types\inventory\stackrequest;
 use pmmp\encoding\Byte;
 use pmmp\encoding\ByteBufferReader;
 use pmmp\encoding\ByteBufferWriter;
+use pmmp\encoding\LE;
 use pmmp\encoding\VarInt;
+use pocketmine\network\mcpe\protocol\PacketDecodeException;
+use pocketmine\network\mcpe\protocol\ProtocolInfo;
 use pocketmine\network\mcpe\protocol\serializer\CommonTypes;
 use pocketmine\network\mcpe\protocol\types\GetTypeIdFromConstTrait;
 use pocketmine\network\mcpe\protocol\types\inventory\ItemStack;
@@ -48,7 +51,25 @@ final class DeprecatedCraftingResultsStackRequestAction extends ItemStackRequest
 	public static function read(ByteBufferReader $in, int $protocolId) : self{
 		$results = [];
 		for($i = 0, $len = VarInt::readUnsignedInt($in); $i < $len; ++$i){
-			$results[] = CommonTypes::getItemStackWithoutStackId($in);
+			if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+				$variant = VarInt::readUnsignedInt($in);
+				$legacy = Byte::readUnsigned($in);
+				if($variant !== $legacy || $variant > 1){
+					throw new PacketDecodeException("Unexpected stack request item descriptor variant $variant (legacy $legacy)");
+				}
+				if($variant === 1){
+					CommonTypes::getString($in); //item identifier - PM can't represent this, and doesn't care
+					$meta = VarInt::readSignedInt($in);
+				}else{
+					$meta = 0;
+				}
+				$count = LE::readSignedShort($in);
+				$blockRuntimeId = CommonTypes::getBlockRuntimeId($in);
+				$rawExtraData = CommonTypes::getString($in);
+				$results[] = new ItemStack(0, $meta, $count, $blockRuntimeId, $rawExtraData);
+			}else{
+				$results[] = CommonTypes::getItemStackWithoutStackId($in, $protocolId);
+			}
 		}
 		$iterations = Byte::readUnsigned($in);
 		return new self($results, $iterations);
@@ -57,7 +78,15 @@ final class DeprecatedCraftingResultsStackRequestAction extends ItemStackRequest
 	public function write(ByteBufferWriter $out, int $protocolId) : void{
 		VarInt::writeUnsignedInt($out, count($this->results));
 		foreach($this->results as $result){
-			CommonTypes::putItemStackWithoutStackId($out, $result);
+			if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+				VarInt::writeUnsignedInt($out, 0);
+				Byte::writeUnsigned($out, 0);
+				LE::writeSignedShort($out, $result->getCount());
+				CommonTypes::putBlockRuntimeId($out, $result->getBlockRuntimeId());
+				CommonTypes::putString($out, $result->getRawExtraData());
+			}else{
+				CommonTypes::putItemStackWithoutStackId($out, $protocolId, $result);
+			}
 		}
 		Byte::writeUnsigned($out, $this->iterations);
 	}

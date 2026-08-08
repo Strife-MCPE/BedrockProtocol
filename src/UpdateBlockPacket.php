@@ -56,14 +56,18 @@ class UpdateBlockPacket extends DataPacket implements ClientboundPacket{
 
 	protected function decodePayload(ByteBufferReader $in, int $protocolId) : void{
 		$this->blockPosition = CommonTypes::getBlockPosition($in, $protocolId >= ProtocolInfo::PROTOCOL_1_26_10);
-		$this->blockRuntimeId = VarInt::readUnsignedInt($in);
+		$this->blockRuntimeId = $protocolId >= ProtocolInfo::PROTOCOL_1_26_40 ? CommonTypes::getBlockRuntimeId($in) : VarInt::readUnsignedInt($in);
 		$this->flags = VarInt::readUnsignedInt($in);
 		$this->dataLayerId = VarInt::readUnsignedInt($in);
 	}
 
 	protected function encodePayload(ByteBufferWriter $out, int $protocolId) : void{
 		CommonTypes::putBlockPosition($out, $this->blockPosition, $protocolId >= ProtocolInfo::PROTOCOL_1_26_10);
-		VarInt::writeUnsignedInt($out, $this->blockRuntimeId);
+		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+			CommonTypes::putBlockRuntimeId($out, $this->blockRuntimeId);
+		}else{
+			VarInt::writeUnsignedInt($out, $this->blockRuntimeId);
+		}
 		VarInt::writeUnsignedInt($out, $this->flags);
 		VarInt::writeUnsignedInt($out, $this->dataLayerId);
 	}

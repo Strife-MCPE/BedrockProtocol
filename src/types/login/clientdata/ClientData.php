@@ -109,6 +109,9 @@ final class ClientData{
 	/** @required */
 	public bool $PersonaSkin;
 
+	/** >= ProtocolInfo::PROTOCOL_1_26_40 */
+	public string $ProfileHash = "";
+
 	/**
 	 * @var ClientDataPersonaPieceTintColor[]
 	 * @required

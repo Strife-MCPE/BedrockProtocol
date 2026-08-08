@@ -26,16 +26,25 @@ final class PresenceInfo{
 	public function __construct(
 		private ?string $experienceName,
 		private ?string $worldName,
-		private string $richPresenceId
+		private ?string $richPresenceId
 	){}
 
+	/** Not used by 1.26.40+ */
 	public function getExperienceName() : ?string{ return $this->experienceName; }
 
+	/** Not used by 1.26.40+ */
 	public function getWorldName() : ?string{ return $this->worldName; }
 
-	public function getRichPresenceId() : string{ return $this->richPresenceId; }
+	/** Null if not sent (only possible for 1.26.40+) */
+	public function getRichPresenceId() : ?string{ return $this->richPresenceId; }
 
 	public static function read(ByteBufferReader $in, int $protocolId) : self{
+		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+			$richPresenceId = CommonTypes::readOptional($in, CommonTypes::getString(...));
+
+			return new self(null, null, $richPresenceId);
+		}
+
 		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_30){
 			$experienceName = CommonTypes::readOptional($in, CommonTypes::getString(...));
 			$worldName = CommonTypes::readOptional($in, CommonTypes::getString(...));
@@ -49,10 +58,12 @@ final class PresenceInfo{
 	}
 
 	public function write(ByteBufferWriter $out, int $protocolId) : void{
-		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_30){
+		if($protocolId >= ProtocolInfo::PROTOCOL_1_26_40){
+			CommonTypes::writeOptional($out, $this->richPresenceId, CommonTypes::putString(...));
+		}elseif($protocolId >= ProtocolInfo::PROTOCOL_1_26_30){
 			CommonTypes::writeOptional($out, $this->experienceName, CommonTypes::putString(...));
 			CommonTypes::writeOptional($out, $this->worldName, CommonTypes::putString(...));
-			CommonTypes::putString($out, $this->richPresenceId);
+			CommonTypes::putString($out, $this->richPresenceId ?? throw new \InvalidArgumentException("richPresenceId must be set for versions prior to 1.26.40"));
 		}else{
 			CommonTypes::putString($out, $this->experienceName ?? throw new \InvalidArgumentException("experienceName must be set"));
 			CommonTypes::putString($out, $this->worldName ?? throw new \InvalidArgumentException("worldName must be set"));

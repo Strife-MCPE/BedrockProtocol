@@ -37,7 +37,8 @@ final class IntGameRule extends GameRule{
 	}
 
 	public function encode(ByteBufferWriter $out, int $protocolId, bool $isStartGame) : void{
-		if($isStartGame || $protocolId < ProtocolInfo::PROTOCOL_1_21_111){
+		//1.26.40 unified gamerule ints to LE everywhere, including StartGame
+		if($protocolId < ProtocolInfo::PROTOCOL_1_26_40 && ($isStartGame || $protocolId < ProtocolInfo::PROTOCOL_1_21_111)){
 			VarInt::writeUnsignedInt($out, $this->value);
 		}else{
 			LE::writeUnsignedInt($out, $this->value);
@@ -45,6 +46,6 @@ final class IntGameRule extends GameRule{
 	}
 
 	public static function decode(ByteBufferReader $in, int $protocolId, bool $isPlayerModifiable, bool $isStartGame) : self{
-		return new self(($isStartGame || $protocolId < ProtocolInfo::PROTOCOL_1_21_111) ? VarInt::readUnsignedInt($in) : LE::readUnsignedInt($in), $isPlayerModifiable);
+		return new self(($protocolId < ProtocolInfo::PROTOCOL_1_26_40 && ($isStartGame || $protocolId < ProtocolInfo::PROTOCOL_1_21_111)) ? VarInt::readUnsignedInt($in) : LE::readUnsignedInt($in), $isPlayerModifiable);
 	}
 }
